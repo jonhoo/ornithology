@@ -231,7 +231,7 @@ async fn main() -> anyhow::Result<()> {
         entry.push(follower.username.to_string());
     }
 
-    let groups = HashMap::from([
+    let groups = Vec::from([
         ("top_tweets", "Top tweets"),
         ("most_talked_about_tweets", "Most talked about tweets"),
         ("most_shared_tweets", "Most shared tweets"),
@@ -296,7 +296,7 @@ async fn main() -> anyhow::Result<()> {
   <body>
     <ul id="followers"></ul>
     <div id="tweets"></div>
-  <script charset="utf-8">
+    <script charset="utf-8">
     var data = {data};
 
     var followers = document.getElementById('followers');
@@ -317,7 +317,7 @@ async fn main() -> anyhow::Result<()> {
 
     var groups = {groups};
     var tweets = document.getElementById('tweets');
-    Object.entries(groups).forEach(([id, title]) => {{
+    groups.forEach(([id, title]) => {{
       var d = document.createElement('div');
       d.id = id;
       d.classList.add("list");
@@ -329,7 +329,7 @@ async fn main() -> anyhow::Result<()> {
   </script>
   <script src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
   <script charset="utf-8">
-    Object.keys(groups).forEach(group => {{
+    groups.forEach(([group, _]) => {{
         var el = document.getElementById(group);
         data[group].forEach(id => {{
           twttr.widgets.createTweet(id, el);
