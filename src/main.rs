@@ -13,9 +13,13 @@ use std::{
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-    /// Number of "top" items to show for each statistic.
+    /// Number of "top" items to show for each tweet statistic.
     #[clap(short = 'n', long, default_value_t = 5)]
-    top: u8,
+    top_tweets: u8,
+
+    /// Number of "top" items to show for each follower statistic.
+    #[clap(long, default_value_t = 10)]
+    top_followers: u8,
 
     /// Ensure that fresh metrics are loaded for every tweet and user.
     ///
@@ -40,7 +44,8 @@ struct Args {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    let topn = args.top as usize;
+    let toptn = args.top_tweets as usize;
+    let topfn = args.top_followers as usize;
     let archive = &*Box::leak(args.archive.into_boxed_path());
 
     let Loaded {
@@ -60,8 +65,8 @@ async fn main() -> anyhow::Result<()> {
         let mut rng = rand::thread_rng();
         let entry = lists_of_tweets
             .entry("old_rts")
-            .or_insert_with(|| Vec::with_capacity(topn));
-        for old_rt_id in old_rt_ids.choose_multiple(&mut rng, topn) {
+            .or_insert_with(|| Vec::with_capacity(toptn));
+        for old_rt_id in old_rt_ids.choose_multiple(&mut rng, toptn) {
             println!("https://twitter.com/{}/status/{}", me, old_rt_id);
             entry.push(old_rt_id.to_string());
         }
@@ -103,8 +108,8 @@ async fn main() -> anyhow::Result<()> {
         let notable = find_notable(&tweets, |t| t.goodness(), 10.0, 2.0);
         let entry = lists_of_tweets
             .entry("notable_tweets")
-            .or_insert_with(|| Vec::with_capacity(topn));
-        for (_, avg, i) in notable.into_iter().take(topn) {
+            .or_insert_with(|| Vec::with_capacity(toptn));
+        for (_, avg, i) in notable.into_iter().take(toptn) {
             let tweet = &tweets[i];
             println!(
                 "https://twitter.com/{}/status/{} ({} likes/{} rts when avg was {:.2})",
@@ -116,14 +121,14 @@ async fn main() -> anyhow::Result<()> {
         println!("talked-about tweets:");
         let entry = lists_of_tweets
             .entry("talked_about_tweets")
-            .or_insert_with(|| Vec::with_capacity(topn));
+            .or_insert_with(|| Vec::with_capacity(toptn));
         let notable = find_notable(
             &tweets,
             |t| 2 * t.metrics.quotations + t.metrics.replies,
             10.0,
             2.0,
         );
-        for (_, avg, i) in notable.into_iter().take(topn) {
+        for (_, avg, i) in notable.into_iter().take(toptn) {
             let tweet = &tweets[i];
             println!(
                 "https://twitter.com/{}/status/{} ({} quotes + {} replies when avg as {:.2})",
@@ -135,14 +140,14 @@ async fn main() -> anyhow::Result<()> {
         println!("over-shared tweets:");
         let entry = lists_of_tweets
             .entry("over_shared_tweets")
-            .or_insert_with(|| Vec::with_capacity(topn));
+            .or_insert_with(|| Vec::with_capacity(toptn));
         let notable = find_notable(
             &tweets,
             |t| 2 * t.metrics.quotations + t.metrics.retweets,
             10.0,
             2.0,
         );
-        for (_, avg, i) in notable.into_iter().take(topn) {
+        for (_, avg, i) in notable.into_iter().take(toptn) {
             let tweet = &tweets[i];
             println!(
                 "https://twitter.com/{}/status/{} ({} quotes + {} retweets when avg as {:.2})",
@@ -156,9 +161,9 @@ async fn main() -> anyhow::Result<()> {
     println!("top tweets:");
     let entry = lists_of_tweets
         .entry("top_tweets")
-        .or_insert_with(|| Vec::with_capacity(topn));
+        .or_insert_with(|| Vec::with_capacity(toptn));
     tweets.sort_unstable_by_key(|t| t.goodness());
-    for tweet in tweets.iter().rev().take(topn) {
+    for tweet in tweets.iter().rev().take(toptn) {
         println!(
             "https://twitter.com/{}/status/{} ({} likes/{} rts)",
             me, tweet.id, tweet.metrics.likes, tweet.metrics.retweets
@@ -169,9 +174,9 @@ async fn main() -> anyhow::Result<()> {
     println!("most talked-about tweets:");
     let entry = lists_of_tweets
         .entry("most_talked_about_tweets")
-        .or_insert_with(|| Vec::with_capacity(topn));
+        .or_insert_with(|| Vec::with_capacity(toptn));
     tweets.sort_unstable_by_key(|t| 2 * t.metrics.quotations + t.metrics.replies);
-    for tweet in tweets.iter().rev().take(topn) {
+    for tweet in tweets.iter().rev().take(toptn) {
         println!(
             "https://twitter.com/{}/status/{} ({} quotes/{} replies)",
             me, tweet.id, tweet.metrics.quotations, tweet.metrics.replies
@@ -182,9 +187,9 @@ async fn main() -> anyhow::Result<()> {
     println!("most shared tweets:");
     let entry = lists_of_tweets
         .entry("most_shared_tweets")
-        .or_insert_with(|| Vec::with_capacity(topn));
+        .or_insert_with(|| Vec::with_capacity(toptn));
     tweets.sort_unstable_by_key(|t| 2 * t.metrics.quotations + t.metrics.retweets);
-    for tweet in tweets.iter().rev().take(topn) {
+    for tweet in tweets.iter().rev().take(toptn) {
         println!(
             "https://twitter.com/{}/status/{} ({} quotes/{} rts)",
             me, tweet.id, tweet.metrics.quotations, tweet.metrics.retweets
@@ -197,9 +202,9 @@ async fn main() -> anyhow::Result<()> {
     println!("top followers:");
     let entry = lists_of_tweets
         .entry("top_followers")
-        .or_insert_with(|| Vec::with_capacity(topn));
+        .or_insert_with(|| Vec::with_capacity(topfn));
     followers.sort_unstable_by_key(|f| f.metrics.followers);
-    for follower in followers.iter().rev().take(topn) {
+    for follower in followers.iter().rev().take(topfn) {
         println!(
             "https://twitter.com/{} ({} followers)",
             follower.username, follower.metrics.followers
@@ -215,10 +220,10 @@ async fn main() -> anyhow::Result<()> {
     println!("neat followers:");
     let entry = lists_of_tweets
         .entry("neat_followers")
-        .or_insert_with(|| Vec::with_capacity(topn));
+        .or_insert_with(|| Vec::with_capacity(topfn));
     followers
         .sort_unstable_by_key(|f| f.metrics.followers as isize - 10 * f.metrics.following as isize);
-    for follower in followers.iter().rev().take(topn) {
+    for follower in followers.iter().rev().take(topfn) {
         println!(
             "https://twitter.com/{} ({} followers but only following {})",
             follower.username, follower.metrics.followers, follower.metrics.following
